@@ -1,10 +1,8 @@
-version: '3.8'
-
 services:
   n8n:
     build:
       context: .
-      dockerfile: docker/images/n8n/Dockerfile
+      dockerfile: Dockerfile.custom
     container_name: n8n-ds2
     restart: unless-stopped
     ports:
