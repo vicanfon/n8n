@@ -145,9 +145,10 @@ const handleLogout = () => {
 };
 
 const authenticateWithBackend = async (token: string, tokenParsed: any, idTokenParsed: any) => {
-	// Call the n8n backend OIDC callback endpoint to validate the token
+	// Call the n8n backend Keycloak auth endpoint to validate the token
 	// and create/update the user session
-	const response = await fetch('/rest/sso/oidc/callback', {
+	// This endpoint works with Community Edition (no enterprise license required)
+	const response = await fetch('/rest/keycloak-auth/login', {
 		method: 'POST',
 		headers: {
 			'Content-Type': 'application/json',
