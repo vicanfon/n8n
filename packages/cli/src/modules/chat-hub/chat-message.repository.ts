@@ -20,7 +20,8 @@ export class ChatHubMessageRepository extends Repository<ChatHubMessage> {
 			this.manager,
 			trx,
 			async (em) => {
-				await em.insert(ChatHubMessage, message);
+				// Cast to avoid excessive type depth with circular entity references
+				await em.insert(ChatHubMessage, message as any);
 				const saved = await em.findOneOrFail(ChatHubMessage, {
 					where: { id: message.id },
 				});
