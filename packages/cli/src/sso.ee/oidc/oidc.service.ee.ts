@@ -310,6 +310,112 @@ export class OidcService {
 		});
 	}
 
+	/**
+	 * Login user with a JWT token from the dash-button component
+	 * This method validates the token and creates or updates the user
+	 */
+	async loginUserWithToken(
+		token: string,
+		tokenParsed: any,
+		idTokenParsed: any,
+	): Promise<User> {
+		const configuration = await this.getOidcConfiguration();
+
+		// Validate the token is not expired
+		if (tokenParsed.exp && Date.now() >= tokenParsed.exp * 1000) {
+			throw new BadRequestError('Token has expired');
+		}
+
+		// Use the parsed token data as claims
+		const claims = idTokenParsed || tokenParsed;
+
+		if (!claims) {
+			throw new ForbiddenError('No claims found in the token');
+		}
+
+		// Verify the token with Keycloak by making a userinfo request
+		let userInfo;
+		try {
+			userInfo = await client.fetchUserInfo(configuration, token, claims.sub);
+		} catch (error) {
+			this.logger.error('Failed to fetch user info with provided token', { error });
+			throw new BadRequestError('Invalid token');
+		}
+
+		if (!userInfo.email) {
+			throw new BadRequestError('An email is required');
+		}
+
+		if (!isValidEmail(userInfo.email)) {
+			throw new BadRequestError('Invalid email format');
+		}
+
+		// Check if user already exists with this OIDC identity
+		const openidUser = await this.authIdentityRepository.findOne({
+			where: { providerId: claims.sub, providerType: 'oidc' },
+			relations: {
+				user: {
+					role: true,
+				},
+			},
+		});
+
+		if (openidUser) {
+			await this.applySsoProvisioning(openidUser.user, claims);
+			return openidUser.user;
+		}
+
+		// Check if user exists with this email
+		const foundUser = await this.userRepository.findOne({
+			where: { email: userInfo.email },
+			relations: ['authIdentities', 'role'],
+		});
+
+		if (foundUser) {
+			this.logger.debug(
+				`OIDC login: User with email ${userInfo.email} already exists, linking OIDC identity.`,
+			);
+			// If the user already exists, we just add the OIDC identity to the user
+			const id = this.authIdentityRepository.create({
+				providerId: claims.sub,
+				providerType: 'oidc',
+				userId: foundUser.id,
+			});
+
+			await this.authIdentityRepository.save(id);
+			await this.applySsoProvisioning(foundUser, claims);
+
+			return foundUser;
+		}
+
+		// Create new user
+		return await this.userRepository.manager.transaction(async (trx) => {
+			const { user } = await this.userRepository.createUserWithProject(
+				{
+					firstName: userInfo.given_name || tokenParsed.given_name,
+					lastName: userInfo.family_name || tokenParsed.family_name,
+					email: userInfo.email,
+					authIdentities: [],
+					role: GLOBAL_MEMBER_ROLE,
+					password: 'no password set',
+				},
+				trx,
+			);
+
+			await trx.save(
+				trx.create(AuthIdentity, {
+					providerId: claims.sub,
+					providerType: 'oidc',
+					userId: user.id,
+				}),
+			);
+
+			await this.applySsoProvisioning(user, claims);
+
+			return user;
+		});
+	}
+
 	private async applySsoProvisioning(user: User, claims: any) {
 		const provisioningConfig = await this.provisioningService.getConfig();
 		const projectRoleMapping = claims[provisioningConfig.scopesProjectsRolesClaimName];

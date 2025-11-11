@@ -97,4 +97,40 @@ export class OidcController {
 
 		res.redirect('/');
 	}
+
+	/**
+	 * Handle token validation from dash-button component
+	 * This endpoint receives a JWT token from the frontend and validates it with Keycloak
+	 */
+	@Post('/callback', { skipAuth: true })
+	@Licensed('feat:oidc')
+	async tokenValidationHandler(
+		req: AuthlessRequest,
+		res: Response,
+		@Body payload: { token: string; tokenParsed: any; idTokenParsed: any },
+	) {
+		try {
+			const { token, tokenParsed, idTokenParsed } = payload;
+
+			if (!token || !tokenParsed) {
+				this.logger.error('Token or tokenParsed is missing');
+				throw new BadRequestError('Invalid token data');
+			}
+
+			// Validate the token with Keycloak and get user information
+			const user = await this.oidcService.loginUserWithToken(
+				token,
+				tokenParsed,
+				idTokenParsed,
+			);
+
+			// Issue authentication cookie
+			this.authService.issueCookie(res, user, true, req.browserId);
+
+			return { success: true, user };
+		} catch (error) {
+			this.logger.error('Token validation error:', error);
+			throw new BadRequestError('Token validation failed');
+		}
+	}
 }

@@ -107,7 +107,14 @@ const plugins: UserConfig['plugins'] = [
 			},
 		],
 	}),
-	vue(),
+	vue({
+		template: {
+			compilerOptions: {
+				// Treat dash-button as a custom element
+				isCustomElement: (tag) => tag === 'dash-button',
+			},
+		},
+	}),
 	svgLoader({
 		svgoConfig: {
 			plugins: [

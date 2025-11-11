@@ -197,6 +197,8 @@
 	"auth.setup.setupOwner": "Set up owner account",
 	"auth.signin": "Sign in",
 	"auth.signin.error": "Problem logging in",
+	"auth.signinWithKeycloak": "Sign in with Keycloak to continue",
+	"auth.signingIn": "Signing in...",
 	"auth.signout": "Sign out",
 	"auth.signout.error": "Could not sign out",
 	"auth.signup.finishAccountSetup": "Finish account setup",
