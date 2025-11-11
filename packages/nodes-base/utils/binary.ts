@@ -8,6 +8,11 @@ import { utils as xlsxUtils, write as xlsxWrite } from 'xlsx';
 
 import { flattenObject } from '@utils/utilities';
 
+// Extend WritingOptions to include properties that are supported by xlsx but missing from type definitions
+interface ExtendedWritingOptions extends WritingOptions {
+	FS?: string; // Field separator for CSV
+}
+
 export type JsonToSpreadsheetBinaryFormat = 'csv' | 'html' | 'rtf' | 'ods' | 'xls' | 'xlsx';
 
 export type JsonToSpreadsheetBinaryOptions = {
@@ -48,7 +53,7 @@ export async function convertJsonToSpreadsheetBinary(
 
 	const sheet = xlsxUtils.json_to_sheet(itemData, sheetToJsonOptions);
 
-	const writingOptions: WritingOptions = {
+	const writingOptions: ExtendedWritingOptions = {
 		bookType: fileFormat,
 		bookSST: false,
 		type: 'buffer',
