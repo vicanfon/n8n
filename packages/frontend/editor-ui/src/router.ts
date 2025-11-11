@@ -64,9 +64,8 @@ const SettingsApiView = async () =>
 const SettingsLogStreamingView = async () =>
 	await import('@/features/integrations/logStreaming.ee/views/SettingsLogStreamingView.vue');
 const SetupView = async () => await import('@/features/core/auth/views/SetupView.vue');
-const SigninView = async () => await import('@/features/core/auth/views/SigninView.vue');
-// const SigninView = async () =>
-// 	await import('@/features/core/auth/views/DashButtonSigninView.vue');
+// const SigninView = async () => await import('@/features/core/auth/views/SigninView.vue');
+const SigninView = async () => await import('@/features/core/auth/views/DashButtonSigninView.vue');
 const SignupView = async () => await import('@/features/core/auth/views/SignupView.vue');
 const TemplatesCollectionView = async () =>
 	await import('@/features/workflows/templates/views/TemplatesCollectionView.vue');
