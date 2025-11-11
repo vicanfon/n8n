@@ -1,0 +1,134 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: n8n-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - n8n-platform
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Keycloak Identity Provider
+  keycloak:
+    image: quay.io/keycloak/keycloak:23.0
+    container_name: n8n-keycloak
+    command: start-dev
+    environment:
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/${KEYCLOAK_DB:-keycloak}
+      KC_DB_USERNAME: ${POSTGRES_USER:-postgres}
+      KC_DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      KC_HOSTNAME: localhost
+      KC_HOSTNAME_STRICT: false
+      KC_HTTP_ENABLED: true
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - n8n-platform
+    volumes:
+      - keycloak_data:/opt/keycloak/data
+
+  # Portal Backend
+  portal-backend:
+    build:
+      context: ./portal/backend
+      dockerfile: Dockerfile
+    container_name: n8n-portal-backend
+    environment:
+      PORTAL_BACKEND_PORT: 3001
+      KEYCLOAK_URL: http://keycloak:8080
+      KEYCLOAK_REALM: ${KEYCLOAK_REALM:-n8n-platform}
+      KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID:-n8n-portal}
+      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET:-}
+      PROVISIONER_URL: http://provisioner:3002
+      N8N_BASE_DOMAIN: ${N8N_BASE_DOMAIN:-n8n.localhost}
+      N8N_PROTOCOL: ${N8N_PROTOCOL:-http}
+      CORS_ORIGIN: http://localhost
+    ports:
+      - "3001:3001"
+    depends_on:
+      - keycloak
+      - provisioner
+    networks:
+      - n8n-platform
+
+  # Portal Frontend
+  portal-frontend:
+    build:
+      context: ./portal/frontend
+      dockerfile: Dockerfile
+    container_name: n8n-portal-frontend
+    environment:
+      VITE_KEYCLOAK_URL: http://localhost:8080
+      VITE_KEYCLOAK_REALM: ${KEYCLOAK_REALM:-n8n-platform}
+      VITE_KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID:-n8n-portal}
+      VITE_API_URL: http://localhost:3001
+    depends_on:
+      - portal-backend
+    networks:
+      - n8n-platform
+
+  # Provisioning Service
+  provisioner:
+    build:
+      context: ./provisioner
+      dockerfile: Dockerfile
+    container_name: n8n-provisioner
+    environment:
+      PROVISIONER_PORT: 3002
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      N8N_IMAGE: ${N8N_IMAGE:-n8nio/n8n:latest}
+      N8N_BASE_DOMAIN: ${N8N_BASE_DOMAIN:-n8n.localhost}
+      DOCKER_NETWORK: n8n-platform
+      N8N_MEMORY_LIMIT: ${N8N_MEMORY_LIMIT:-512m}
+      N8N_CPU_LIMIT: ${N8N_CPU_LIMIT:-1}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - n8n-platform
+
+  # NGINX Reverse Proxy
+  nginx:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    container_name: n8n-nginx
+    ports:
+      - "80:80"
+    depends_on:
+      - portal-frontend
+      - portal-backend
+    networks:
+      - n8n-platform
+
+networks:
+  n8n-platform:
+    name: n8n-platform
+    driver: bridge
+
+volumes:
+  postgres_data:
+    name: n8n-postgres-data
+  keycloak_data:
+    name: n8n-keycloak-data

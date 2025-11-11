@@ -1,0 +1,46 @@
+# Environment variables
+.env
+
+# Node modules
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build outputs
+dist/
+build/
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+
+# Docker
+.docker/
+
+# SSL certificates
+*.pem
+*.key
+*.crt
+ssl/
+
+# Backups
+backups/
+*.sql
+*.sql.gz
+
+# Temporary files
+tmp/
+temp/
